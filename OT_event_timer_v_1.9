@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Operation Theater Event Timer</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+      overflow: auto; /* Allow page scroll */
+    }
+
+    #overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.5);
+      z-index: 1000;
+      display: none;
+    }
+
+    #timerPanel {
+      background: #f4f4f4;
+      padding: 10px;
+      border-radius: 8px;
+      position: fixed;
+      top: 10px;
+      right: 10px;
+      width: auto;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: center;
+      z-index: 1001;
+    }
+
+    .buttonContainer {
+      display: flex;
+      align-items: center;
+      margin: 5px;
+    }
+
+    button {
+      padding: 10px;
+      font-size: 16px;
+      cursor: pointer;
+      border: none;
+      border-radius: 5px;
+      color: white;
+      opacity: 0.5;
+      pointer-events: none;
+    }
+
+    button.active {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    #aboutButton {
+      position: fixed;
+      bottom: 10px;
+      right: 10px;
+      background-color: #555;
+      color: white;
+      padding: 10px;
+      font-size: 16px;
+      border-radius: 5px;
+      cursor: pointer;
+      opacity: 1; /* Always visible */
+      pointer-events: auto; /* Always clickable */
+      z-index: 1002; /* Ensure it's above other elements */
+    }
+
+    .timeDisplay {
+      margin-left: 10px;
+      font-weight: bold;
+      background-color: #ffffff;
+      width: 100px;
+      padding: 5px;
+      border-radius: 5px;
+      text-align: center;
+    }
+
+    .dateButton { background-color: #000000; }
+    .patientIn, .patientOut { background-color: #2E8B57; } /* Bright Green */
+    .anesthesiaStart, .anesthesiaEnd { background-color: #1E90FF; } /* Bright Blue */
+    .surgeryStart, .surgeryEnd { background-color: #FF4500; } /* Bright Red */
+    .incision, .closure { background-color: #9932CC; } /* Bright Purple */
+
+    #otNumber {
+      margin: 10px;
+      padding: 5px;
+      font-size: 16px;
+      border-radius: 5px;
+    }
+
+    #resetButton {
+      margin-top: 20px; /* Spacing from button groups */
+      background-color: #FF0000; /* Red for emphasis */
+      font-weight: bold;
+      opacity: 1; /* Always visible */
+      pointer-events: auto; /* Always clickable */
+    }
+
+    #aboutInfo {
+      display: none; /* Initially hidden */
+      margin-top: 20px;
+      padding: 10px;
+      background-color: #fff;
+      border: 1px solid #ddd;
+      border-radius: 5px;
+      width: 100%;
+      max-width: 400px;
+      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+      position: absolute;
+      bottom: 60px; /* Position above the About Button */
+      right: 10px;
+      z-index: 1003; /* Ensure it's above other elements */
+    }
+
+    #aboutInfo h2 {
+      margin-top: 0;
+      color: #1E90FF;
+    }
+
+    #aboutInfo ul {
+      padding-left: 20px;
+    }
+
+    #aboutInfo a {
+      color: #1E90FF;
+      text-decoration: none;
+    }
+
+    #aboutInfo a:hover {
+      text-decoration: underline;
+    }
+
+    /* App Name and Version */
+    #appInfo {
+      position: fixed;
+      bottom: 20px;
+      left: 10px;
+      font-size: 12px;
+      color: #555;
+      z-index: 1002; /* Ensure it's above other elements */
+    }
+
+    /* Modal Styles */
+    #userManualModal {
+      display: none; /* Hidden by default */
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background-color: #fff;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+      z-index: 1004; /* Ensure it's above other elements */
+      width: 80%;
+      max-width: 600px;
+      max-height: 80vh;
+      overflow-y: auto;
+    }
+
+    #userManualModal h2 {
+      margin-top: 0;
+      color: #2E8B57;
+    }
+
+    #userManualModal ul {
+      padding-left: 20px;
+    }
+
+    #userManualModal a {
+      color: #1E90FF;
+      text-decoration: none;
+    }
+
+    #userManualModal a:hover {
+      text-decoration: underline;
+    }
+
+    #modalOverlay {
+      display: none; /* Hidden by default */
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0, 0, 0, 0.5);
+      z-index: 1003; /* Ensure it's above other elements */
+    }
+
+    #closeModalButton {
+      margin-top: 20px;
+      padding: 10px;
+      background-color: #FF0000;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <div id="overlay"></div>
+  <div id="timerPanel">
+    <div class="buttonContainer">
+      <select id="otNumber">
+        <option value="A1">A1</option>
+        <option value="A2">A2</option>
+        <option value="A3">A3</option>
+        <option value="A4">A4</option>
+        <option value="A5">A5</option>
+        <option value="A6">A6</option>
+        <option value="A7">A7</option>
+        <option value="A8">A8</option>
+        <option value="B1">B1</option>
+        <option value="m1">m1</option>
+        <option value="m2">m2</option>
+        <option value="m3">m3</option>
+        <option value="H1">H1</option>
+        <option value="H2">H2</option>
+        <option value="H3">H3</option>
+      </select>
+    </div>
+    <div class="buttonContainer">
+      <button id="dateButton" class="dateButton active" onclick="activateNext('patientIn')">OT Event</button>
+    </div>
+    <div class="buttonContainer">
+      <button id="patientIn" class="patientIn" onclick="activateNext('anesthesiaStart')">Patient In</button>
+      <span id="PatientInTime" class="timeDisplay"></span>
+    </div>
+    <div class="buttonContainer">
+      <button id="anesthesiaStart" class="anesthesiaStart" onclick="activateNext('surgeryStart')">Anesthesia Start</button>
+      <span id="AnesthesiaStartTime" class="timeDisplay"></span>
+    </div>
+    <div class="buttonContainer">
+      <button id="surgeryStart" class="surgeryStart" onclick="activateNext('incision')">Surgery Start</button>
+      <span id="SurgeryStartTime" class="timeDisplay"></span>
+    </div>
+    <div class="buttonContainer">
+      <button id="incision" class="incision" onclick="activateNext('closure')">Incision</button>
+      <span id="IncisionTime" class="timeDisplay"></span>
+    </div>
+    <div class="buttonContainer">
+      <button id="closure" class="closure" onclick="activateNext('surgeryEnd')">Closure</button>
+      <span id="ClosureTime" class="timeDisplay"></span>
+    </div>
+    <div class="buttonContainer">
+      <button id="surgeryEnd" class="surgeryEnd" onclick="activateNext('anesthesiaEnd')">Surgery End</button>
+      <span id="SurgeryEndTime" class="timeDisplay"></span>
+    </div>
+    <div class="buttonContainer">
+      <button id="anesthesiaEnd" class="anesthesiaEnd" onclick="activateNext('patientOut')">Anesthesia End</button>
+      <span id="AnesthesiaEndTime" class="timeDisplay"></span>
+    </div>
+    <div class="buttonContainer">
+      <button id="patientOut" class="patientOut" onclick="confirmAndSave()">Patient Out</button>
+      <span id="PatientOutTime" class="timeDisplay"></span>
+    </div>
+    <!-- Reset Button -->
+    <div class="buttonContainer" style="margin-top: 30px;">
+      <button id="resetButton" onclick="resetPage()">Reset</button>
+    </div>
+  </div>
+
+  <!-- App Name and Version -->
+  <div id="appInfo">
+    OT Timer, v 1.9 (8Mar2025), CCYA, Prof. (Dr.) Jyotirmay Kirtania
+  </div>
+
+  <!-- About Button -->
+  <button id="aboutButton" onclick="toggleAboutInfo()">About</button>
+
+  <!-- About Info Section -->
+  <div id="aboutInfo">
+    <h2>Operation Theater Event Timer</h2>
+    <p><strong>Version 1.9</strong> | <strong>Dated: 8 March 2025</strong></p>
+    <p><strong>Copyright Statement:</strong> Professor (Dr.) Jyotirmay Kirtania</p>
+    <p><strong>License:</strong> CCYA (Creative Commons Attribution License)</p>
+    <p><strong>ORCID ID:</strong> <a href="https://orcid.org/0000-0002-4426-6877" target="_blank">0000-0002-4426-6877</a></p>
+    <h2>About</h2>
+    <p>The Operation Theater Event Timer is a simple and effective web-based application designed to help medical professionals track and record key events during surgical procedures.</p>
+    <h2>Features</h2>
+    <ul>
+      <li>Event Tracking</li>
+      <li>Time Recording (HH:MM format)</li>
+      <li>OT Number Selection</li>
+      <li>Reset Functionality</li>
+      <li>Data Export (CSV)</li>
+    </ul>
+    <h2>User Manual</h2>
+    <p>For detailed instructions, refer to the <a href="#" onclick="openUserManual(); return false;">User Manual</a>.</p>
+  </div>
+
+  <!-- User Manual Modal -->
+  <div id="userManualModal">
+    <h2>User Manual</h2>
+    <h3>How to Use the OT Event Timer</h3>
+    <ol>
+      <li><strong>Open the Application:</strong>
+        <ul>
+          <li>Open the application in a web browser (e.g., Chrome, Firefox, Edge).</li>
+        </ul>
+      </li>
+      <li><strong>Select OT Number:</strong>
+        <ul>
+          <li>Use the dropdown menu to select the OT number for the current procedure.</li>
+        </ul>
+      </li>
+      <li><strong>Start Logging Events:</strong>
+        <ul>
+          <li>Click the <strong>OT Event Button</strong> to begin.</li>
+          <li>The <strong>Patient In</strong> button will activate. Click it to record the time when the patient enters the OT.</li>
+        </ul>
+      </li>
+      <li><strong>Log Subsequent Events:</strong>
+        <ul>
+          <li>Follow the sequence of buttons as the procedure progresses.</li>
+          <li>Each button will activate after the previous one is clicked.</li>
+          <li>The recorded time will appear next to each button.</li>
+        </ul>
+      </li>
+      <li><strong>Complete the Procedure:</strong>
+        <ul>
+          <li>After the patient leaves the OT, click the <strong>Patient Out</strong> button.</li>
+          <li>A confirmation prompt will appear. Confirm to save the data.</li>
+        </ul>
+      </li>
+      <li><strong>Export Data:</strong>
+        <ul>
+          <li>After confirming, the application will automatically save a CSV file with all event times.</li>
+        </ul>
+      </li>
+      <li><strong>Reset the Application:</strong>
+        <ul>
+          <li>To start a new procedure, click the <strong>Reset Button</strong>.</li>
+          <li>Confirm the reset when prompted.</li>
+        </ul>
+      </li>
+    </ol>
+    <h3>Tips for Effective Use</h3>
+    <ul>
+      <li><strong>Double-Check Times:</strong> Ensure each event is logged accurately.</li>
+      <li><strong>Avoid Accidental Resets:</strong> The Reset Button is placed away from other buttons to prevent accidental presses.</li>
+      <li><strong>Save CSV Files:</strong> Keep the exported CSV files for future reference or documentation.</li>
+    </ul>
+    <h3>Technical Details</h3>
+    <ul>
+      <li><strong>Platform:</strong> Web-based (HTML, CSS, JavaScript).</li>
+      <li><strong>Compatibility:</strong> Works on all modern web browsers.</li>
+      <li><strong>License:</strong> CCYA (Creative Commons Attribution License).</li>
+    </ul>
+    <h3>Copyright and License</h3>
+    <ul>
+      <li><strong>Copyright Holder:</strong> Professor (Dr.) Jyotirmay Kirtania.</li>
+      <li><strong>Version:</strong> 1.9 (8 March 2025).</li>
+      <li><strong>License:</strong> CCYA (Creative Commons Attribution License). You are free to share and adapt the application, provided proper credit is given to the original author.</li>
+    </ul>
+    <button id="closeModalButton" onclick="closeUserManual()">Close</button>
+  </div>
+
+  <!-- Modal Overlay -->
+  <div id="modalOverlay" onclick="closeUserManual()"></div>
+
+  <script>
+    const times = {};
+    let isPageReset = false;
+
+    // Prevent page refresh or closure
+    window.addEventListener('beforeunload', (e) => {
+      e.preventDefault();
+      e.returnValue = '';
+    });
+
+    // Overlay all windows
+    const overlay = document.getElementById('overlay');
+    overlay.style.display = 'block';
+
+    // Function to get current time in HH:MM format (24-hour system)
+    function getCurrentTime() {
+      const now = new Date();
+      const hours = String(now.getHours()).padStart(2, '0');
+      const minutes = String(now.getMinutes()).padStart(2, '0');
+      return `${hours}:${minutes}`;
+    }
+
+    // Function to activate the next button and log the time
+    function activateNext(nextId) {
+      const currentTime = getCurrentTime();
+      const currentButton = document.querySelector('button.active');
+      const nextButton = document.getElementById(nextId);
+
+      if (currentButton) {
+        const timeDisplay = currentButton.parentElement.querySelector('.timeDisplay');
+        if (timeDisplay) {
+          timeDisplay.textContent = currentTime;
+          times[currentButton.textContent] = currentTime;
+        }
+        currentButton.classList.remove('active');
+        currentButton.disabled = true; // Disable the button after use
+      }
+
+      if (nextButton) {
+        nextButton.classList.add('active');
+        nextButton.disabled = false;
+      }
+    }
+
+    // Function to confirm and save the data
+    function confirmAndSave() {
+      if (confirm('Are you sure you want to record the Patient Out time and save all event times?')) {
+        activateNext(); // Log the time for 'Patient Out'
+        saveData();
+      }
+    }
+
+    // Function to save data as a CSV file
+    function saveData() {
+      const otNumber = document.getElementById('otNumber').value;
+      const currentDate = new Date().toLocaleDateString();
+      const csvContent = `OT Number,${otNumber}\nDate,${currentDate}\nEvent,Time\n` +
+        Object.entries(times).map(entry => `${entry[0]},${entry[1]}`).join('\n');
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = `OT_Times_${otNumber}_${new Date().toISOString().replace(/T/g, '_').slice(0, 19).replace(/:/g, '-')}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+
+    // Function to reset the page
+    function resetPage() {
+      if (confirm('Are you sure you want to reset the page? All data will be lost.')) {
+        window.location.reload(); // Reload the page to reset
+      }
+    }
+
+    // Function to toggle About Info visibility
+    function toggleAboutInfo() {
+      const aboutInfo = document.getElementById('aboutInfo');
+      if (aboutInfo.style.display === 'none' || aboutInfo.style.display === '') {
+        aboutInfo.style.display = 'block'; // Show the About Info
+      } else {
+        aboutInfo.style.display = 'none'; // Hide the About Info
+      }
+    }
+
+    // Function to open User Manual Modal
+    function openUserManual() {
+      const modal = document.getElementById('userManualModal');
+      const modalOverlay = document.getElementById('modalOverlay');
+      modal.style.display = 'block';
+      modalOverlay.style.display = 'block';
+    }
+
+    // Function to close User Manual Modal
+    function closeUserManual() {
+      const modal = document.getElementById('userManualModal');
+      const modalOverlay = document.getElementById('modalOverlay');
+      modal.style.display = 'none';
+      modalOverlay.style.display = 'none';
+    }
+  </script>
+</body>
+</html>
